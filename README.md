@@ -258,6 +258,83 @@ func attestPPCIE() {
 
 ```
 
+## CLI (`nvattest`)
+
+In addition to the libraries above, this project ships a command-line tool,
+`nvattest`, whose interface mirrors NVIDIA's
+[attestation-sdk](https://github.com/NVIDIA/attestation-sdk) `nvattest` tool so
+that existing users can migrate with minimal changes to their scripts.
+
+Build and install it with:
+
+```sh
+go build -o nvattest ./cmd/nvattest
+# or
+go install github.com/google/go-nvattest-tools/cmd/nvattest@latest
+```
+
+### Global flags
+
+-   `--log-level {trace|debug|info|warn|error|off}` (default `warn`)
+-   `--format {text|json}` (default `text`)
+
+### Subcommands
+
+**`nvattest version`** — prints the version as JSON: `{"nvattest":"1.0"}`.
+
+**`nvattest collect-evidence`** — collects attestation evidence from live
+devices or reads it from a file.
+
+```sh
+# Collect from local GPUs (Linux only; requires libnvidia-ml) and save evidence.
+nvattest collect-evidence --device gpu --format json > evidence.json
+
+# Re-emit evidence from an existing file.
+nvattest collect-evidence --device gpu \
+  --gpu-evidence-source file --gpu-evidence-file evidence.json --format json
+```
+
+Flags: `--device {gpu|nvswitch}`, `--nonce <hex>`,
+`--gpu-evidence-source {nvml|file}`, `--gpu-evidence-file <path>`,
+`--nvswitch-evidence-source {nscq|file}`, `--nvswitch-evidence-file <path>`.
+
+**`nvattest attest`** — verifies attestation evidence locally and reports the
+verification result.
+
+```sh
+# Attest local GPUs (collects + verifies in one step; Linux only).
+nvattest attest --device gpu --verifier local --format json
+
+# Verify evidence collected earlier (works on any platform).
+nvattest attest --device gpu \
+  --gpu-evidence-source file --gpu-evidence-file evidence.json \
+  --nonce <hex-nonce-used-at-collection> --format json
+```
+
+The topology mode (SPT / MPT / PPCIE) is detected automatically from the
+evidence. `--service-key` authenticates requests to NVIDIA's RIM and OCSP
+services. Under `--format json` the output is the library's verification-state
+protos (`GpuQuoteState` / `SwitchQuoteState`) serialized as JSON.
+
+### Compatibility notes
+
+This CLI provides **local** attestation only — it is a Go reimplementation of
+NVIDIA's local verifier. The following nvattest options are accepted for
+interface parity but are **not supported** and return a clear error:
+
+-   `--verifier remote` (NVIDIA NRAS remote attestation service)
+-   `--gpu-evidence-source corelib`
+-   `--relying-party-policy` (Rego policy evaluation)
+-   `--rim-url` / `--ocsp-url` overrides (the built-in NVIDIA endpoints are used)
+
+`--nras-url` and `--gpu-architecture` are accepted and ignored (the GPU
+architecture is derived from the evidence). Output does **not** include signed
+`detached_eat` / EAT JWTs; it reports the verification state directly.
+
+The `--gpu-evidence-file` / `--nvswitch-evidence-file` inputs accept both the
+legacy NVIDIA evidence JSON format and the protojson format written by this
+tool's `collect-evidence`.
+
 ## License
 
 go-nvattest-tools is released under the Apache 2.0 license.
