@@ -32,6 +32,9 @@ const (
 	// MeasurementRecordLengthFieldSize is the size (in bytes) of the measurement record length field in the attestation report.
 	MeasurementRecordLengthFieldSize = 3
 
+	// SpdmMeasurementResponseHeaderSize is the size (in bytes) of the invariant header prefix preceding the measurement record in the SPDM measurement response.
+	SpdmMeasurementResponseHeaderSize = SpdmVersionFieldSize + RequestResponseCodeFieldSize + Param1FieldSize + Param2FieldSize + NumberOfBlocksFieldSize + MeasurementRecordLengthFieldSize
+
 	// OpaqueLengthFieldSize is the size (in bytes) of the opaque length field in the attestation report.
 	OpaqueLengthFieldSize = 2
 
@@ -43,6 +46,9 @@ const (
 
 	// MeasurementBlockSizeFieldSize is the size (in bytes) of the measurement block size field in the measurement block.
 	MeasurementBlockSizeFieldSize = 2
+
+	// MeasurementBlockHeaderSize is the size (in bytes) of the fixed header fields in a measurement block.
+	MeasurementBlockHeaderSize = MeasurementBlockIndexFieldSize + MeasurementBlockSpecificationFieldSize + MeasurementBlockSizeFieldSize
 
 	// MeasurementBlockDmtfSpecValueFieldSize is the size (in bytes) of the measurement block dmtf spec value field in the measurement block.
 	MeasurementBlockDmtfSpecValueFieldSize = 1
@@ -59,11 +65,17 @@ const (
 	// DmtfSpecMeasurementValueSizeFieldSize is the size (in bytes) of the dmtf spec measurement value size field in the dmtf measurement.
 	DmtfSpecMeasurementValueSizeFieldSize = 2
 
+	// DmtfMeasurementHeaderSize is the size (in bytes) of the fixed header fields in a DMTF measurement.
+	DmtfMeasurementHeaderSize = DmtfSpecMeasurementValueTypeFieldSize + DmtfSpecMeasurementValueSizeFieldSize
+
 	// OpaqueDataTypeFieldSize is the size (in bytes) of the opaque data type field in the opaque data.
 	OpaqueDataTypeFieldSize = 2
 
 	// OpaqueDataSizeFieldSize is the size (in bytes) of the opaque data size field in the opaque data.
 	OpaqueDataSizeFieldSize = 2
+
+	// OpaqueDataHeaderSize is the size (in bytes) of the header fields in an opaque data field.
+	OpaqueDataHeaderSize = OpaqueDataTypeFieldSize + OpaqueDataSizeFieldSize
 
 	// OpaquePdiDataSizeFieldSize is the size (in bytes) of the opaque switch pdis data size field in the opaque data.
 	OpaquePdiDataSizeFieldSize = 8

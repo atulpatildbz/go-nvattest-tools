@@ -167,7 +167,14 @@ func TestParseSpdmMeasurementResponse(t *testing.T) {
 			data:             make([]byte, 0),
 			opaqueDataParser: &gpuOpaqueDataParser{},
 			signatureLength:  GpuAttestationReportSignatureFieldSize,
-			wantErr:          &ParsingError{Context: "parseSpdmMeasurementResponse(...)", Info: OutOfRangeRuntimeError},
+			wantErr:          &IncorrectLengthError{Context: "spdm measurement response header", Expected: SpdmMeasurementResponseHeaderSize, Actual: 0},
+		},
+		{
+			name:             "truncated_nonce_in_spdm_measurement_response_gpu",
+			data:             testdata.RawGpuAttestationReportTestData.RawAttestationReport[SpdmRequestSize : SpdmRequestSize+testdata.RawGpuAttestationReportTestData.MeasurementRecordOffset+testdata.RawGpuAttestationReportTestData.MeasurementRecordLength+10],
+			opaqueDataParser: &gpuOpaqueDataParser{},
+			signatureLength:  GpuAttestationReportSignatureFieldSize,
+			wantErr:          &IncorrectLengthError{Context: "nonce", Expected: NonceFieldSize, Actual: 10},
 		},
 		{
 			name:             "valid_spdm_measurement_response_switch",
@@ -283,7 +290,7 @@ func TestParseMeasurementRecord(t *testing.T) {
 			data:                    outOfRangeMeasurementRecordData,
 			numberOfBlocks:          2,
 			measurementRecordLength: 1,
-			wantErr:                 &ParsingError{Context: "parseMeasurementRecord(...)", Info: OutOfRangeRuntimeError},
+			wantErr:                 &IncorrectLengthError{Context: "measurement block header", Expected: MeasurementBlockHeaderSize, Actual: 1},
 		},
 		{
 			name:                    "invalid_measurement_record_length",
@@ -291,6 +298,13 @@ func TestParseMeasurementRecord(t *testing.T) {
 			numberOfBlocks:          testdata.RawGpuAttestationReportTestData.NumberOfBlocks,
 			measurementRecordLength: testdata.RawGpuAttestationReportTestData.MeasurementRecordLength,
 			wantErr:                 &IncorrectLengthError{Context: "measurement record", Expected: testdata.RawGpuAttestationReportTestData.MeasurementRecordLength, Actual: 0},
+		},
+		{
+			name:                    "negative_measurement_record_length",
+			data:                    func() []byte { return make([]byte, 10) },
+			numberOfBlocks:          1,
+			measurementRecordLength: -1,
+			wantErr:                 &IncorrectLengthError{Context: "measurement record", Expected: -1, Actual: 10},
 		},
 	}
 
@@ -320,10 +334,28 @@ func TestParseDmtfMeasurement(t *testing.T) {
 			wantErr:    &IncorrectLengthError{Context: "dmtf measurement", Expected: 51, Actual: 0},
 		},
 		{
+			name:       "negative_dmtf_measurement_length",
+			dataLength: -1,
+			data:       []byte{1, 2, 0, 0},
+			wantErr:    &IncorrectLengthError{Context: "dmtf measurement", Expected: -1, Actual: 4},
+		},
+		{
 			name:       "parsing_error_in_dmtf_measurement",
 			dataLength: 4,
 			data:       []byte{1, 2, 0, 0},
-			wantErr:    &ParsingError{Context: "parseDmtfMeasurement(...)", Info: OutOfRangeRuntimeError},
+			wantErr:    &IncorrectLengthError{Context: "dmtf measurement value", Expected: 2, Actual: 1},
+		},
+		{
+			name:       "truncated_header_in_dmtf_measurement",
+			dataLength: 2,
+			data:       []byte{1, 2},
+			wantErr:    &IncorrectLengthError{Context: "dmtf measurement header", Expected: DmtfMeasurementHeaderSize, Actual: 2},
+		},
+		{
+			name:       "trailing_slack_bytes_in_dmtf_measurement",
+			dataLength: 10,
+			data:       []byte{1, 1, 0, 0xaa, 0, 0, 0, 0, 0, 0},
+			wantErr:    &ParsingError{Context: "parseDmtfMeasurement(...)", Info: "something went wrong while parsing dmtf measurement. DMTF measurement bytes length is 4 bytes, expected 10 bytes"},
 		},
 	}
 
@@ -391,7 +423,21 @@ func TestParseOpaqueData(t *testing.T) {
 			parser:     &gpuOpaqueDataParser{},
 			data:       []byte{1, 0, 2, 0},
 			dataLength: 4,
-			wantErr:    &ParsingError{Context: "parseOpaqueData(...)", Info: OutOfRangeRuntimeError},
+			wantErr:    &IncorrectLengthError{Context: "opaque field value", Expected: 2, Actual: 0},
+		},
+		{
+			name:       "truncated_header_in_opaque_data_gpu",
+			parser:     &gpuOpaqueDataParser{},
+			data:       []byte{1, 0, 2},
+			dataLength: 3,
+			wantErr:    &IncorrectLengthError{Context: "opaque field header", Expected: OpaqueDataHeaderSize, Actual: 3},
+		},
+		{
+			name:       "negative_opaque_data_length_gpu",
+			parser:     &gpuOpaqueDataParser{},
+			data:       []byte{1, 0, 2, 0},
+			dataLength: -1,
+			wantErr:    &IncorrectLengthError{Context: "opaque data", Expected: -1, Actual: 4},
 		},
 		{
 			name:       "valid_opaque_data_switch",
@@ -462,7 +508,21 @@ func TestParseOpaqueData(t *testing.T) {
 			parser:     &switchOpaqueDataParser{},
 			data:       []byte{1, 0, 2, 0},
 			dataLength: 4,
-			wantErr:    &ParsingError{Context: "parseOpaqueData(...)", Info: OutOfRangeRuntimeError},
+			wantErr:    &IncorrectLengthError{Context: "opaque field value", Expected: 2, Actual: 0},
+		},
+		{
+			name:       "truncated_header_in_opaque_data_switch",
+			parser:     &switchOpaqueDataParser{},
+			data:       []byte{1, 0, 2},
+			dataLength: 3,
+			wantErr:    &IncorrectLengthError{Context: "opaque field header", Expected: OpaqueDataHeaderSize, Actual: 3},
+		},
+		{
+			name:       "negative_opaque_data_length_switch",
+			parser:     &switchOpaqueDataParser{},
+			data:       []byte{1, 0, 2, 0},
+			dataLength: -1,
+			wantErr:    &IncorrectLengthError{Context: "opaque data", Expected: -1, Actual: 4},
 		},
 	}
 
@@ -615,6 +675,12 @@ func TestParseSignature(t *testing.T) {
 			data:       make([]byte, 0),
 			dataLength: GpuAttestationReportSignatureFieldSize,
 			wantErr:    &IncorrectLengthError{Context: "signature", Expected: GpuAttestationReportSignatureFieldSize, Actual: 0},
+		},
+		{
+			name:       "negative_signature_length",
+			data:       make([]byte, 10),
+			dataLength: -1,
+			wantErr:    &IncorrectLengthError{Context: "signature", Expected: -1, Actual: 10},
 		},
 	}
 
